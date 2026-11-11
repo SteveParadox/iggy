@@ -105,7 +105,8 @@ impl PersonalAccessToken {
             IggyExpiry::ExpireDuration(expiry) => now
                 .as_micros()
                 .checked_add(expiry.as_micros())
-                .map(|expiry_at| Some(IggyTimestamp::from(expiry_at)))
+                .and_then(IggyTimestamp::checked_from_micros)
+                .map(Some)
                 .ok_or(IggyError::InvalidPersonalAccessTokenExpiry),
             IggyExpiry::NeverExpire | IggyExpiry::ServerDefault => Ok(None),
         }
@@ -155,9 +156,12 @@ mod tests {
         let last = IggyExpiry::ExpireDuration(IggyDuration::from(u64::MAX - 1_000));
         let past = IggyExpiry::ExpireDuration(IggyDuration::from(u64::MAX - 999));
 
+        let expected_last = IggyTimestamp::checked_from_micros(u64::MAX)
+            .map(Some)
+            .ok_or(IggyError::InvalidPersonalAccessTokenExpiry);
         assert_eq!(
             PersonalAccessToken::calculate_expiry_at(now, last),
-            Ok(Some(IggyTimestamp::from(u64::MAX)))
+            expected_last
         );
         assert_eq!(
             PersonalAccessToken::calculate_expiry_at(now, past),
